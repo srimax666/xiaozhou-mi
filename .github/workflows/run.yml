@@ -1,35 +1,41 @@
 name: 刷步数
 
 on:
-  #push:
-  #  branches: [ master ]
-  #pull_request:
-  #  branches: [ master ]
   schedule:
-     - cron: '4 23,2,5,8,11,14 * * *'
-  watch:
-    types: started
+    # UTC 时间；北京时间 07:04 / 10:04 / 13:04 / 16:04 / 19:04 / 22:04
+    - cron: '4 23,2,5,8,11,14 * * *'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04       # 别用 ubuntu-latest（已滚到 26.04，DNS 有问题）
+    timeout-minutes: 15
     steps:
       - name: Checkout codes
         uses: actions/checkout@v4
-      - name: Update system and install zsh
-        run: |
-          sudo -E apt-get -qq update
-          sudo -E apt-get install zsh -y
-          
+
       - name: 初始化Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
+      - name: 检查 CONFIG
+        env:
+          CONFIG: ${{ secrets.CONFIG }}
+        run: |
+          if [ -z "$CONFIG" ]; then
+            echo "::error::secret CONFIG 为空，请到 Settings → Secrets 添加"
+            exit 1
+          fi
+          python3 -c "import json,os; json.loads(os.environ['CONFIG']); print('CONFIG JSON 格式 OK')"
+
       - name: 开始
         env:
           CONFIG: ${{ secrets.CONFIG }}
         run: |
-          pip install --upgrade pip
-          pip3 install requests
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --retries 5 --timeout 60 requests
           python3 main.py
